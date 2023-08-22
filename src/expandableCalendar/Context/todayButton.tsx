@@ -48,22 +48,66 @@ const TodayButton = (props: TodayButtonProps, ref: any) => {
   const state = isToday(date) ? 0 : isPastDate(date) ? -1 : 1;
   const shouldShow = state !== 0;
 
+  /** Icon */
+
+  const getButtonIcon = useCallback(() => {
+    if (shouldShow) {
+      return state === 1 ? UP_ICON : DOWN_ICON;
+    }
+  }, [shouldShow, state]);
+
+  /** Animations */
+
+  const buttonY = useRef(new Animated.Value(margin ? -margin : -TOP_POSITION));
+  const opacity = useRef(new Animated.Value(1));
+
   /** Effects */
 
   useEffect(() => {
     if (shouldShow) {
       setButtonIcon(getButtonIcon());
     }
+
+    function getPositionAnimation() {
+      const toValue = state === 0 ? TOP_POSITION : -margin || -TOP_POSITION;
+      return {
+        toValue,
+        tension: 30,
+        friction: 8,
+        useNativeDriver: true
+      };
+    }
+
+    function animatePosition() {
+      const animationData = getPositionAnimation();
+      Animated.spring(buttonY.current, {
+        ...animationData
+      }).start();
+    }
     animatePosition();
-  }, [state]);
+  }, [getButtonIcon, margin, shouldShow, state]);
 
   useEffect(() => {
     if (!shouldShow) {
       return;
     }
 
+    function getOpacityAnimation() {
+      return {
+        toValue: disabled ? disabledOpacity : 1,
+        duration: 500,
+        useNativeDriver: true
+      };
+    }
+
+    function animateOpacity() {
+      const animationData = getOpacityAnimation();
+      Animated.timing(opacity.current, {
+        ...animationData
+      }).start();
+    }
     animateOpacity();
-  }, [disabled]);
+  }, [disabled, disabledOpacity, shouldShow]);
 
   const disable = (shouldDisable: boolean) => {
     if (shouldDisable !== disabled) {
@@ -81,52 +125,7 @@ const TodayButton = (props: TodayButtonProps, ref: any) => {
 
   const today = useRef(getFormattedLabel());
 
-  /** Icon */
-
-  const getButtonIcon = () => {
-    if (shouldShow) {
-      return state === 1 ? UP_ICON : DOWN_ICON;
-    }
-  };
-
   const [buttonIcon, setButtonIcon] = useState(getButtonIcon());
-
-  /** Animations */
-
-  const buttonY = useRef(new Animated.Value(margin ? -margin : -TOP_POSITION));
-  const opacity = useRef(new Animated.Value(1));
-
-  const getPositionAnimation = () => {
-    const toValue = state === 0 ? TOP_POSITION : -margin || -TOP_POSITION;
-    return {
-      toValue,
-      tension: 30,
-      friction: 8,
-      useNativeDriver: true
-    };
-  };
-  
-  const getOpacityAnimation = () => {
-    return {
-      toValue: disabled ? disabledOpacity : 1,
-      duration: 500,
-      useNativeDriver: true
-    };
-  };
-
-  const animatePosition = () => {
-    const animationData = getPositionAnimation();
-    Animated.spring(buttonY.current, {
-      ...animationData
-    }).start();
-  };
-
-  const animateOpacity = () => {
-    const animationData = getOpacityAnimation();
-    Animated.timing(opacity.current, {
-      ...animationData
-    }).start();
-  };
 
   const getTodayDate = () => {
     return toMarkingFormat(new XDate());

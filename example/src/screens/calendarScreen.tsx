@@ -9,10 +9,10 @@ const CalendarScreen = () => {
   const [selected, setSelected] = useState(INITIAL_DATE);
   const [currentMonth, setCurrentMonth] = useState(INITIAL_DATE);
 
-  const getDate = (count: number) => {
+  const getDate = (count: number): string => {
     const date = new Date(INITIAL_DATE);
     const newDate = date.setDate(date.getDate() + count);
-    return CalendarUtils.getCalendarDateString(newDate);
+    return CalendarUtils.getCalendarDateString(newDate) as string;
   };
 
   const onDayPress = useCallback((day) => {
@@ -34,7 +34,7 @@ const CalendarScreen = () => {
     };
   }, [selected]);
 
-  const renderCalendarWithSelectableDate = () => {
+  const RenderCalendarWithSelectableDate = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with selectable date</Text>
@@ -50,7 +50,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithWeekNumbers = () => {
+  const RenderCalendarWithWeekNumbers = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with week numbers</Text>
@@ -59,7 +59,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithMinAndMaxDates = () => {
+  const RenderCalendarWithMinAndMaxDates = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with min and max dates</Text>
@@ -75,7 +75,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithMarkedDatesAndHiddenArrows = () => {
+  const RenderCalendarWithMarkedDatesAndHiddenArrows = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with marked dates and hidden arrows</Text>
@@ -98,7 +98,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithMultiDotMarking = () => {
+  const RenderCalendarWithMultiDotMarking = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with multi-dot marking</Text>
@@ -127,7 +127,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithPeriodMarkingAndSpinner = () => {
+  const RenderCalendarWithPeriodMarkingAndSpinner = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with period marking and spinner</Text>
@@ -178,7 +178,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithPeriodMarkingAndDotMarking = () => {
+  const RenderCalendarWithPeriodMarkingAndDotMarking = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with period marking and dot marking</Text>
@@ -223,7 +223,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithMultiPeriodMarking = () => {
+  const RenderCalendarWithMultiPeriodMarking = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with multi-period marking</Text>
@@ -258,7 +258,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithCustomMarkingType = () => {
+  const RenderCalendarWithCustomMarkingType = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Custom calendar with custom marking type</Text>
@@ -356,7 +356,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithCustomDay = () => {
+  const RenderCalendarWithCustomDay = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with custom day component</Text>
@@ -376,11 +376,11 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithCustomHeaderTitle = () => {
+  const RenderCalendarWithCustomHeaderTitle = () => {
     const [selectedValue, setSelectedValue] = useState(new Date());
 
     const getNewSelectedDate = useCallback(
-      (date, shouldAdd) => {
+      (date, shouldAdd: boolean) => {
         const newMonth = new Date(date).getMonth();
         const month = shouldAdd ? newMonth + 1 : newMonth - 1;
         const newDate = new Date(selectedValue.setMonth(month));
@@ -390,7 +390,7 @@ const CalendarScreen = () => {
       [selectedValue]
     );
     const onPressArrowLeft = useCallback(
-      (subtract, month) => {
+      (subtract, month: XDate | undefined) => {
         const newDate = getNewSelectedDate(month, false);
         setSelectedValue(newDate);
         subtract();
@@ -399,7 +399,7 @@ const CalendarScreen = () => {
     );
 
     const onPressArrowRight = useCallback(
-      (add, month) => {
+      (add, month: XDate | undefined) => {
         const newDate = getNewSelectedDate(month, true);
         setSelectedValue(newDate);
         add();
@@ -442,7 +442,7 @@ const CalendarScreen = () => {
     setCustomHeaderNewMonth(false);
   };
 
-  const renderCalendarWithCustomHeader = () => {
+  const RenderCalendarWithCustomHeader = () => {
     const CustomHeader = React.forwardRef((props, ref) => {
       customHeaderProps.current = props;
 
@@ -460,6 +460,7 @@ const CalendarScreen = () => {
         </View>
       );
     });
+    CustomHeader.displayName = 'CustomHeader';
 
     return (
       <Fragment>
@@ -474,7 +475,7 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderCalendarWithInactiveDays = () => {
+  const RenderCalendarWithInactiveDays = () => {
     return (
       <Fragment>
         <Text style={styles.text}>Calendar with inactive days</Text>
@@ -495,29 +496,29 @@ const CalendarScreen = () => {
     );
   };
 
-  const renderExamples = () => {
+  const RenderExamples = () => {
     return (
       <Fragment>
-        {renderCalendarWithSelectableDate()}
-        {renderCalendarWithWeekNumbers()}
-        {renderCalendarWithMinAndMaxDates()}
-        {renderCalendarWithCustomDay()}
-        {renderCalendarWithInactiveDays()}
-        {renderCalendarWithCustomHeaderTitle()}
-        {renderCalendarWithCustomHeader()}
-        {renderCalendarWithMarkedDatesAndHiddenArrows()}
-        {renderCalendarWithMultiDotMarking()}
-        {renderCalendarWithPeriodMarkingAndSpinner()}
-        {renderCalendarWithPeriodMarkingAndDotMarking()}
-        {renderCalendarWithMultiPeriodMarking()}
-        {renderCalendarWithCustomMarkingType()}
+        <RenderCalendarWithSelectableDate/>
+        <RenderCalendarWithWeekNumbers/>
+        <RenderCalendarWithMinAndMaxDates/>
+        <RenderCalendarWithCustomDay/>
+        <RenderCalendarWithInactiveDays/>
+        <RenderCalendarWithCustomHeaderTitle />
+        <RenderCalendarWithCustomHeader/>
+        <RenderCalendarWithMarkedDatesAndHiddenArrows/>
+        <RenderCalendarWithMultiDotMarking/>
+        <RenderCalendarWithPeriodMarkingAndSpinner/>
+        <RenderCalendarWithPeriodMarkingAndDotMarking/>
+        <RenderCalendarWithMultiPeriodMarking/>
+        <RenderCalendarWithCustomMarkingType/>
       </Fragment>
     );
   };
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} testID={testIDs.calendars.CONTAINER}>
-      {renderExamples()}
+      <RenderExamples />
     </ScrollView>
   );
 };

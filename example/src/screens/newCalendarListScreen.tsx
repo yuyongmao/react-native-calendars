@@ -11,7 +11,7 @@ const NewCalendarListScreen = () => {
   
   const onValueChange = useCallback((value) => {
     setIsHorizontal(value);
-  }, [isHorizontal]);
+  }, []);
 
   const markedDates = useMemo(() => {
     return {
@@ -32,7 +32,7 @@ const NewCalendarListScreen = () => {
       markedDates: markedDates,
       onDayPress: onDayPress
     };
-  }, [selected, markedDates, onDayPress]);
+  }, [markedDates, onDayPress]);
 
   return (
     <View style={styles.container}>

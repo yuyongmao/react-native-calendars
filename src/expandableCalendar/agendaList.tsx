@@ -21,7 +21,8 @@ import {
   NativeScrollEvent,
   LayoutChangeEvent,
   ViewToken,
-  TextProps
+  TextProps,
+  ViewabilityConfig
 } from 'react-native';
 
 import {useDidUpdate} from '../hooks';
@@ -35,9 +36,7 @@ import constants from '../commons/constants';
 import styleConstructor from './style';
 import Context from './Context';
 
-const viewabilityConfig = {
-  itemVisiblePercentThreshold: 20 // 50 means if 50% of the item is visible
-};
+const VIEWABILITY_CONFIG: ViewabilityConfig = {itemVisiblePercentThreshold: 20}; // 50 means if 50% of the item is visible
 
 export interface AgendaListProps extends SectionListProps<any, DefaultSectionT> {
   /** Specify theme properties to override specific styles for calendar parts */
@@ -96,21 +95,14 @@ const AgendaList = (props: AgendaListProps) => {
   const didScroll = useRef(false);
   const sectionScroll = useRef(false);
   const sectionHeight = useRef(0);
-
-  useEffect(() => {
-    if (date !== _topSection.current) {
-      setTimeout(() => {
-        scrollToSection(date);
-      }, 500);
-    }
-  }, []);
-
-  useDidUpdate(() => {
-    // NOTE: on first init data should set first section to the current date!!!
-    if (updateSource !== UpdateSources.LIST_DRAG && updateSource !== UpdateSources.CALENDAR_INIT) {
-      scrollToSection(date);
-    }
-  }, [date]);
+  
+  // Refs to provide indirect/stable dependencies to _onViewableItemsChanged to satisfy FlatList immutability requirement.
+  const avoidDateUpdatesPropRef = useRef(avoidDateUpdates);
+  avoidDateUpdatesPropRef.current = avoidDateUpdates; // always set the current value
+  const onViewableItemsChangedPropRef = useRef(onViewableItemsChanged);
+  onViewableItemsChangedPropRef.current = onViewableItemsChanged; // always set the current value
+  const setDateRef = useRef(setDate);
+  setDateRef.current = setDate; // always set the current value
 
   const getSectionIndex = (date: string) => {
     let i;
@@ -129,6 +121,9 @@ const AgendaList = (props: AgendaListProps) => {
       const prev = parseDate(sections[j - 1]?.title);
       const next = parseDate(sections[j]?.title);
       const cur = new XDate(date);
+      if (!prev || !next) {
+        continue;
+      }
       if (isGTE(cur, prev) && isGTE(next, cur)) {
         i = sameDate(prev, cur) ? j - 1 : j;
         break;
@@ -138,6 +133,42 @@ const AgendaList = (props: AgendaListProps) => {
     }
     return i;
   };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const scrollToSection = useCallback(debounce((d) => {
+    const sectionIndex = scrollToNextEvent ? getNextSectionIndex(d) : getSectionIndex(d);
+    if (isUndefined(sectionIndex)) {
+      return;
+    }
+    if (list?.current && sectionIndex !== undefined) {
+      sectionScroll.current = true; // to avoid setDate() in onViewableItemsChanged
+      _topSection.current = sections[sectionIndex]?.title;
+
+      list?.current.scrollToLocation({
+        animated: true,
+        sectionIndex: sectionIndex,
+        itemIndex: 0,
+        viewPosition: 0, // position at the top
+        viewOffset: (constants.isAndroid ? sectionHeight.current : 0) + viewOffset
+      });
+    }
+  }, 1000, {leading: false, trailing: true}),
+  [scrollToNextEvent, getNextSectionIndex, getSectionIndex, sections, viewOffset]);
+
+  useEffect(() => {
+    if (date !== _topSection.current) {
+      setTimeout(() => {
+        scrollToSection(date);
+      }, 500);
+    }
+  }, [date, scrollToSection]);
+
+  useDidUpdate(() => {
+    // NOTE: on first init data should set first section to the current date!!!
+    if (updateSource !== UpdateSources.LIST_DRAG && updateSource !== UpdateSources.CALENDAR_INIT) {
+      scrollToSection(date);
+    }
+  }, [date, scrollToSection, updateSource]);
 
   const getSectionTitle = useCallback((title: string) => {
     if (!title) return;
@@ -162,40 +193,21 @@ const AgendaList = (props: AgendaListProps) => {
     }
 
     return sectionTitle;
-  }, []);
-
-  const scrollToSection = useCallback(debounce((d) => {
-    const sectionIndex = scrollToNextEvent ? getNextSectionIndex(d) : getSectionIndex(d);
-    if (isUndefined(sectionIndex)) {
-      return;
-    }
-    if (list?.current && sectionIndex !== undefined) {
-      sectionScroll.current = true; // to avoid setDate() in onViewableItemsChanged
-      _topSection.current = sections[sectionIndex]?.title;
-
-      list?.current.scrollToLocation({
-        animated: true,
-        sectionIndex: sectionIndex,
-        itemIndex: 0,
-        viewPosition: 0, // position at the top
-        viewOffset: (constants.isAndroid ? sectionHeight.current : 0) + viewOffset
-      });
-    }
-  }, 1000, {leading: false, trailing: true}), [viewOffset, sections]);
+  }, [dayFormat, dayFormatter, markToday, useMoment]);
 
   const _onViewableItemsChanged = useCallback((info: {viewableItems: Array<ViewToken>; changed: Array<ViewToken>}) => {
     if (info?.viewableItems && !sectionScroll.current) {
       const topSection = get(info?.viewableItems[0], 'section.title');
       if (topSection && topSection !== _topSection.current) {
         _topSection.current = topSection;
-        if (didScroll.current && !avoidDateUpdates) {
+        if (didScroll.current && !avoidDateUpdatesPropRef.current) {
           // to avoid setDate() on first load (while setting the initial context.date value)
-          setDate?.(_topSection.current, UpdateSources.LIST_DRAG);
+          setDateRef.current?.(_topSection.current, UpdateSources.LIST_DRAG);
         }
       }
     }
-    onViewableItemsChanged?.(info);
-  }, [avoidDateUpdates, setDate, onViewableItemsChanged]);
+    onViewableItemsChangedPropRef.current?.(info);
+  }, []); // NOTE: There must be no dependencies and no NEED for a dependency here, as FlatList does not allow any changes to onViewableItemsChanged with the same key prop after mounting!
 
   const _onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!didScroll.current) {
@@ -203,7 +215,7 @@ const AgendaList = (props: AgendaListProps) => {
       scrollToSection.cancel();
     }
     onScroll?.(event);
-  }, [onScroll]);
+  }, [onScroll, scrollToSection]);
 
   const _onMomentumScrollBegin = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setDisabled?.(true);
@@ -240,7 +252,7 @@ const AgendaList = (props: AgendaListProps) => {
 
     const headerTitle = getSectionTitle(title);
     return <AgendaSectionHeader title={headerTitle} style={headerTextStyle} onLayout={onHeaderLayout}/>;
-  }, [headerTextStyle]);
+  }, [getSectionTitle, headerTextStyle, onHeaderLayout, renderSectionHeader]);
 
   const _keyExtractor = useCallback((item: any, index: number) => {
     return isFunction(keyExtractor) ? keyExtractor(item, index) : String(index);
@@ -254,7 +266,7 @@ const AgendaList = (props: AgendaListProps) => {
       keyExtractor={_keyExtractor}
       showsVerticalScrollIndicator={false}
       onViewableItemsChanged={_onViewableItemsChanged}
-      viewabilityConfig={viewabilityConfig}
+      viewabilityConfig={VIEWABILITY_CONFIG}
       renderSectionHeader={_renderSectionHeader}
       onScroll={_onScroll}
       onMomentumScrollBegin={_onMomentumScrollBegin}
@@ -286,6 +298,7 @@ const AgendaSectionHeader = React.memo((props: AgendaSectionHeaderProps) => {
     </Text>
   );
 }, areTextPropsEqual);
+AgendaSectionHeader.displayName = 'AgendaSectionHeader';
 
 export default AgendaList;
 

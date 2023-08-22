@@ -5,6 +5,7 @@ import {Calendar, CalendarUtils} from 'react-native-calendars';
 
 import testIDs from '../testIDs';
 import Marking from '../../../src/calendar/day/marking';
+import {DateData} from '../../../src/types';
 
 const INITIAL_DATE = '2022-07-06';
 const GREEN = '#13ba7d';
@@ -300,7 +301,7 @@ const NewCalendarScreen = () => {
       case Marking.markings.CUSTOM:
         return customMarks;
     }
-  }, [markingType, selected]);
+  }, [customMarks, dotMarks, markingType, multiDotMarks, multiPeriodMarks, periodWithDotsMarks]);
 
   const renderCalendar = () => {
     return (
@@ -341,7 +342,8 @@ const NewCalendarScreen = () => {
   };
 
   /** Custom Day */
-  const CustomDay = ({date, state}) => {
+  type CustomDayProps = {date: DateData; state: string};
+  const CustomDay = ({date, state}: CustomDayProps) => {
     return (
       <View>
         <Text style={[styles.customDay, state === 'disabled' ? styles.disabledText : styles.defaultText]}>
@@ -385,6 +387,7 @@ const NewCalendarScreen = () => {
       </View>
     );
   });
+  CustomHeader.displayName = 'CustomHeader';
 
   /** Custom Header Title */
   const [selectedValue, setSelectedValue] = useState(new Date());

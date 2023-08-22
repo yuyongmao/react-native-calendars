@@ -47,14 +47,14 @@ const WeekCalendar = (props: WeekCalendarProps) => {
       // @ts-expect-error
       list.current?.scrollToOffset?.(pageIndex * containerWidth, 0, false);
     }
-  }, [date]);
+  }, [containerWidth, date, firstDay, items, updateSource]);
 
   const onDayPress = useCallback(
     (dateData: DateData) => {
       context.setDate?.(dateData.dateString, UpdateSources.DAY_PRESS);
       props.onDayPress?.(dateData);
     },
-    [props.onDayPress]
+    [context, props]
   );
 
   const onPageChange = useCallback(
@@ -63,7 +63,7 @@ const WeekCalendar = (props: WeekCalendarProps) => {
         context?.setDate(items[pageIndex], UpdateSources.WEEK_SCROLL);
       }
     },
-    [items]
+    [context, items]
   );
 
   const reloadPages = useCallback(
@@ -71,7 +71,7 @@ const WeekCalendar = (props: WeekCalendarProps) => {
       const date = items[pageIndex];
       setItems(getDatesArray(date, firstDay, NUMBER_OF_PAGES));
     },
-    [items]
+    [firstDay, items]
   );
 
   const renderItem = useCallback(
@@ -94,7 +94,7 @@ const WeekCalendar = (props: WeekCalendarProps) => {
         />
       );
     },
-    [date, markedDates]
+    [context, date, firstDay, markedDates, onDayPress, props, weekStyle]
   );
 
   return (

@@ -97,7 +97,7 @@ const PeriodDay = (props: PeriodDayProps) => {
       }
     }
     return containerStyle;
-  }, [marking, state]);
+  }, [marking, markingStyle.containerStyle, markingStyle.endingDay, markingStyle.startingDay, state]);
 
   const textStyle = useMemo(() => {
     const textStyle = [style.current.text];
@@ -117,7 +117,7 @@ const PeriodDay = (props: PeriodDayProps) => {
     }
 
     return textStyle;
-  }, [marking, state]);
+  }, [marking, markingStyle.textStyle, state]);
 
   const fillerStyles = useMemo(() => {
     const leftFillerStyle: ViewStyle = {backgroundColor: undefined};
@@ -138,7 +138,7 @@ const PeriodDay = (props: PeriodDayProps) => {
     }
 
     return {leftFillerStyle, rightFillerStyle, fillerStyle};
-  }, [marking]);
+  }, [markingStyle.day, markingStyle.endingDay, markingStyle.startingDay]);
 
   const renderFillers = () => {
     if (marking) {
@@ -153,12 +153,12 @@ const PeriodDay = (props: PeriodDayProps) => {
 
   const _onPress = useCallback(() => {
     onPress?.(dateData);
-  }, [onPress]);
+  }, [dateData, onPress]);
 
   const _onLongPress = useCallback(() => {
     onLongPress?.(dateData);
-  }, [onLongPress]);
-    
+  }, [dateData, onLongPress]);
+
   const Component = marking ? TouchableWithoutFeedback : TouchableOpacity;
   
   return (

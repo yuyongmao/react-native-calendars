@@ -96,22 +96,22 @@ const Calendar = (props: CalendarProps & ContextProp) => {
     testID,
     style: propsStyle
   } = props;
-  const [currentMonth, setCurrentMonth] = useState(current || initialDate ? parseDate(current || initialDate) : new XDate());
+  const [currentMonth, setCurrentMonth] = useState(current || initialDate ? parseDate(current || initialDate) as XDate : new XDate());
   const style = useRef(styleConstructor(theme));
   const header = useRef();
   const weekNumberMarking = useRef({disabled: true, disableTouchEvent: true});
 
   useEffect(() => {
     if (initialDate) {
-      setCurrentMonth(parseDate(initialDate));
+      setCurrentMonth(parseDate(initialDate) as XDate);
     }
   }, [initialDate]);
 
   useDidUpdate(() => {
-    const _currentMonth = currentMonth.clone();
+    const _currentMonth = currentMonth?.clone();
     onMonthChange?.(xdateToData(_currentMonth));
     onVisibleMonthsChange?.([xdateToData(_currentMonth)]);
-  }, [currentMonth]);
+  }, [currentMonth, onMonthChange, onVisibleMonthsChange]);
 
   const updateMonth = useCallback((newMonth: XDate) => {
     if (sameMonth(newMonth, currentMonth)) {

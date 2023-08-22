@@ -7,22 +7,29 @@ interface WeekDaysNamesProps {
   style?: StyleProp<TextStyle>;
 }
 
-const WeekDaysNames = React.memo(({firstDay, style}: WeekDaysNamesProps) => {
+const WeekDaysNames = React.memo((props: WeekDaysNamesProps) => {
+  const {firstDay, style} = props;
   const dayNames = weekDayNames(firstDay);
   
-  return dayNames.map((day: string, index: number) => (
-    <Text
-      allowFontScaling={false}
-      key={index}
-      style={style}
-      numberOfLines={1}
-      accessibilityLabel={''}
-      // accessible={false} // not working
-      // importantForAccessibility='no'
-    >
-      {day}
-    </Text>
-  ));
+  return (
+    <>
+      {dayNames.map((day: string, index: number) => (
+        <Text
+          allowFontScaling={false}
+          key={index}
+          style={style}
+          numberOfLines={1}
+          accessibilityLabel={''}
+          // accessible={false} // not working
+          // importantForAccessibility='no'
+        >
+        {day}
+        </Text>
+        ))
+      }
+    </>
+  );
 });
+WeekDaysNames.displayName = 'WeekDaysNames';
 
 export default WeekDaysNames;

@@ -1,7 +1,7 @@
 import XDate from 'xdate';
 
 import React, {useCallback, useContext, useMemo, useRef, useState} from 'react';
-import {FlatList, View, ViewToken} from 'react-native';
+import {FlatList, View, ViewabilityConfig, ViewToken} from 'react-native';
 
 import {sameWeek, onSameDateRange} from '../../dateutils';
 import {toMarkingFormat} from '../../interface';
@@ -19,6 +19,7 @@ import {useDidUpdate} from '../../hooks';
 export const NUMBER_OF_PAGES = 6;
 const NUM_OF_ITEMS = NUMBER_OF_PAGES * 2 + 1; // NUMBER_OF_PAGES before + NUMBER_OF_PAGES after + current
 const APPLY_ANDROID_FIX = constants.isAndroid && constants.isRTL;
+const VIEWABILITY_CONFIG: ViewabilityConfig = {itemVisiblePercentThreshold: 20}; // 50 means if 50% of the item is visible
 
 export interface WeekCalendarProps extends CalendarListProps {
   /** whether to have shadow/elevation for the calendar */
@@ -32,10 +33,15 @@ export interface WeekCalendarProps extends CalendarListProps {
  */
 const WeekCalendar = (props: WeekCalendarProps) => {
   const {
+    // eslint-disable-next-line react/prop-types
     calendarWidth,
+    // eslint-disable-next-line react/prop-types
     hideDayNames,
+    // eslint-disable-next-line react/prop-types
     current,
+    // eslint-disable-next-line react/prop-types
     theme,
+    // eslint-disable-next-line react/prop-types
     testID,
   } = props;
   const context = useContext(CalendarContext);
@@ -50,11 +56,25 @@ const WeekCalendar = (props: WeekCalendarProps) => {
   const list = useRef<FlatList>(null);
   const currentIndex = useRef(NUMBER_OF_PAGES);
 
+  const onEndReached = useCallback(() => {
+    changedItems.current = true;
+    items.current = getDatesArray(visibleWeek.current, firstDay, numberOfDays);
+    setListData(items.current);
+    currentIndex.current = NUMBER_OF_PAGES;
+    list?.current?.scrollToIndex({index: NUMBER_OF_PAGES, animated: false});
+  }, [firstDay, numberOfDays]);
+
+  // Refs to provide indirect/stable dependencies to onViewableItemsChanged to satisfy FlatList immutability requirement.
+  const setDateRef = useRef(setDate);
+  setDateRef.current = setDate; // always set the current value
+  const onEndReachedRef = useRef(onEndReached);
+  onEndReachedRef.current = onEndReached; // always set the current value
+  
   useDidUpdate(() => {
     items.current = getDatesArray(date, firstDay, numberOfDays);
     setListData(items.current);
     visibleWeek.current = date;
-  }, [numberOfDays]);
+  }, [date, firstDay, numberOfDays]);
 
   useDidUpdate(() => {
     if (updateSource !== UpdateSources.WEEK_SCROLL) {
@@ -78,7 +98,7 @@ const WeekCalendar = (props: WeekCalendarProps) => {
         pageIndex <= 0 ? onEndReached() : list?.current?.scrollToIndex({index: pageIndex, animated: false});
       }
     }
-  }, [date, updateSource]);
+  }, [date, firstDay, numberOfDays, onEndReached, updateSource]);
 
   const containerWidth = useMemo(() => {
     return calendarWidth ?? constants.screenWidth;
@@ -90,7 +110,7 @@ const WeekCalendar = (props: WeekCalendarProps) => {
     } else {
       setDate?.(value.dateString, UpdateSources.DAY_PRESS);
     }
-  }, [onDayPress]);
+  }, [onDayPress, setDate]);
 
   const weekStyle = useMemo(() => {
     return [{width: containerWidth}, propsStyle];
@@ -111,7 +131,7 @@ const WeekCalendar = (props: WeekCalendarProps) => {
         timelineLeftInset={timelineLeftInset}
       />
     );
-  },[firstDay, _onDayPress, context, date]);
+  }, [date, firstDay, context, others, weekStyle, _onDayPress, numberOfDays, timelineLeftInset]);
 
   const keyExtractor = useCallback((item) => item, []);
 
@@ -143,14 +163,6 @@ const WeekCalendar = (props: WeekCalendarProps) => {
     };
   }, [containerWidth]);
 
-  const onEndReached = useCallback(() => {
-    changedItems.current = true;
-    items.current = (getDatesArray(visibleWeek.current, firstDay, numberOfDays));
-    setListData(items.current);
-    currentIndex.current = NUMBER_OF_PAGES;
-    list?.current?.scrollToIndex({index: NUMBER_OF_PAGES, animated: false});
-  }, [firstDay, numberOfDays]);
-
   const onViewableItemsChanged = useCallback(({viewableItems}: { viewableItems: Array<ViewToken>}) => {
     if (changedItems.current || viewableItems.length === 0) {
       changedItems.current = false;
@@ -165,27 +177,20 @@ const WeekCalendar = (props: WeekCalendarProps) => {
         const adjustedNewDate = currItems[NUMBER_OF_PAGES - newDateOffset];
         visibleWeek.current = adjustedNewDate;
         currentIndex.current = currItems.indexOf(adjustedNewDate);
-        setDate(adjustedNewDate, UpdateSources.WEEK_SCROLL);
+        setDateRef.current(adjustedNewDate, UpdateSources.WEEK_SCROLL);
         if (visibleWeek.current === currItems[currItems.length - 1]) {
-          onEndReached();
+          onEndReachedRef.current();
         }
       } else {
         currentIndex.current = currItems.indexOf(newDate);
         visibleWeek.current = newDate;
-        setDate(newDate, UpdateSources.WEEK_SCROLL);
+        setDateRef.current(newDate, UpdateSources.WEEK_SCROLL);
         if (visibleWeek.current === currItems[0]) {
-          onEndReached();
+          onEndReachedRef.current();
         }
       }
     }
-  }, [onEndReached]);
-
-  const viewabilityConfigCallbackPairs = useRef([{
-      viewabilityConfig: {
-        itemVisiblePercentThreshold: 20,
-      },
-      onViewableItemsChanged,
-    }]);
+  }, []); // NOTE: There must be no dependencies and no NEED for a dependency here, as FlatList does not allow any changes to onViewableItemsChanged with the same key prop after mounting!
 
   return (
     <View
@@ -211,7 +216,8 @@ const WeekCalendar = (props: WeekCalendarProps) => {
             keyExtractor={keyExtractor}
             initialScrollIndex={NUMBER_OF_PAGES}
             getItemLayout={getItemLayout}
-            viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={VIEWABILITY_CONFIG}
             onEndReached={onEndReached}
             onEndReachedThreshold={1/NUM_OF_ITEMS}
           />
@@ -228,24 +234,24 @@ function getDateForDayRange(date: string, weekIndex: number, numberOfDays: numbe
   return toMarkingFormat(d);
 }
 
-function getDate(date: string, firstDay: number, weekIndex: number, numberOfDays?: number) {
+function getDate(date: string, firstDay: number, weekIndex: number) {
   const d = new XDate(date);
   // get the first day of the week as date (for the on scroll mark)
   let dayOfTheWeek = d.getDay();
   if (dayOfTheWeek < firstDay && firstDay > 0) {
     dayOfTheWeek = 7 + dayOfTheWeek;
   }
-  if (weekIndex !== 0) {
-    d.addDays(firstDay - dayOfTheWeek);
-  }
-  const newDate = numberOfDays && numberOfDays > 1 ? d.addDays(weekIndex * numberOfDays) : d.addWeeks(weekIndex);
-  const today = new XDate();
-  const offsetFromNow = newDate.diffDays(today);
-  const isSameWeek = offsetFromNow > 0 && offsetFromNow < (numberOfDays ?? 7);
-  return toMarkingFormat(isSameWeek ? today : newDate);
+
+  // leave the current date in the visible week as is
+  const dd = weekIndex === 0 ? d : d.addDays(firstDay - dayOfTheWeek);
+  const newDate = dd.addWeeks(weekIndex);
+  return toMarkingFormat(newDate);
 }
 
-function getDatesArray(date: string, firstDay: number, numberOfDays?: number) {
+/**
+ * Exported only for testing.
+ */
+export function getDatesArray(date: string, firstDay: number, numberOfDays?: number) {
   return [...Array(NUM_OF_ITEMS).keys()].map((index) => {
     if(isCustomNumberOfDays(numberOfDays)) {
       return getDateForDayRange(date, index - NUMBER_OF_PAGES, numberOfDays as number);

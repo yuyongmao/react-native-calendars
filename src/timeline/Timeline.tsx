@@ -170,7 +170,7 @@ const Timeline = (props: TimelineProps) => {
         rightEdgeSpacing: rightEdgeSpacing / numberOfDays
       });
     });
-  }, [pageEvents, start, numberOfDays]);
+  }, [pageEvents, width, numberOfDays, start, overlapEventsSpacing, rightEdgeSpacing]);
 
   useEffect(() => {
     let initialPosition = 0;
@@ -190,7 +190,7 @@ const Timeline = (props: TimelineProps) => {
         });
       }, 0);
     }
-  }, []);
+  }, [initialTime, packedEvents, scrollToFirst, scrollToNow]);
 
   const _onEventPress = useCallback(
     (dateIndex: number, eventIndex: number) => {
@@ -202,7 +202,7 @@ const Timeline = (props: TimelineProps) => {
         onEventPress?.(event);
       }
     },
-    [onEventPress, eventTapped]
+    [packedEvents, eventTapped, onEventPress]
   );
 
   const renderEvents = (dayIndex: number) => {

@@ -83,7 +83,7 @@ const TimelineHours = (props: TimelineHoursProps) => {
       const timeString = buildTimeString(hour, minutes, dateByPosition);
       onBackgroundLongPress?.(timeString, lastLongPressEventTime.current);
     },
-    [onBackgroundLongPress, date]
+    [timelineLeftInset, numberOfDays, date, onBackgroundLongPress]
   );
 
   const handlePressOut = useCallback(() => {
@@ -93,7 +93,7 @@ const TimelineHours = (props: TimelineHoursProps) => {
       onBackgroundLongPressOut?.(timeString, lastLongPressEventTime.current);
       lastLongPressEventTime.current = undefined;
     }
-  }, [onBackgroundLongPressOut, date]);
+  }, [onBackgroundLongPressOut]);
 
   return (
     <>

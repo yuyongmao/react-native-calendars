@@ -27,7 +27,7 @@ export default function PlaygroundScreen() {
 
   const onDayPress = useCallback((day) => {
     setSelectedDate(day.dateString);
-  }, [selectedDate]);
+  }, []);
 
   const renderCalendar = () => {
     return (

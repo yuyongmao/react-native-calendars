@@ -71,26 +71,27 @@ const TimelineList = (props: TimelineListProps) => {
       }
     }
     prevDate.current = date;
-  }, [updateSource]);
+  }, [isOutOfRange, pagesRef, resetPages, resetPagesDebounce, scrollToPageDebounce, updateSource]);
 
   useEffect(() => {
     if (date !== prevDate.current) {
       scrollToCurrentDate(date);
     }
-  }, [date]);
+  }, [date, scrollToCurrentDate]);
 
   const onScroll = useCallback(() => {
     if (shouldResetPages.current) {
       resetPagesDebounce.cancel();
     }
-  }, []);
+  }, [resetPagesDebounce, shouldResetPages]);
 
   const onMomentumScrollEnd = useCallback(() => {
     if (shouldResetPages.current) {
       resetPagesDebounce(prevDate.current);
     }
-  }, []);
+  }, [resetPagesDebounce, shouldResetPages]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const onPageChange = useCallback(
     throttle((pageIndex: number) => {
       const newDate = pages[pageIndex];
@@ -98,12 +99,12 @@ const TimelineList = (props: TimelineListProps) => {
         setDate(newDate, UpdateSources.LIST_DRAG);
       }
     }, 0),
-    [pages]
+    [pages, setDate]
   );
 
   const onReachNearEdge = useCallback(() => {
     shouldResetPages.current = true;
-  }, []);
+  }, [shouldResetPages]);
 
   const onTimelineOffsetChange = useCallback(offset => {
     setTimelineOffset(offset);
@@ -144,7 +145,19 @@ const TimelineList = (props: TimelineListProps) => {
         </>
       );
     },
-    [events, timelineOffset, showNowIndicator, numberOfDays]
+    [
+      events,
+      numberOfDays,
+      timelineProps,
+      scrollToNow,
+      initialTime,
+      scrollToFirst,
+      timelineOffset,
+      onTimelineOffsetChange,
+      showNowIndicator,
+      timelineLeftInset,
+      renderItem
+    ]
   );
 
   return (

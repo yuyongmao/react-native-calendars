@@ -95,7 +95,8 @@ const headerStyleOverride = {
  */
 
 const ExpandableCalendar = (props: ExpandableCalendarProps) => {
-  const {date, setDate, numberOfDays, timelineLeftInset} = useContext(Context);
+  const useContextResult = useContext(Context);
+  const {date, setDate, numberOfDays, timelineLeftInset} = useContextResult;
   const {
     /** ExpandableCalendar props */
     initialPosition = Positions.CLOSED,
@@ -183,7 +184,7 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
   useEffect(() => {
     _height.current = startHeight;
     deltaY.setValue(startHeight);
-  }, [startHeight]);
+  }, [deltaY, startHeight]);
 
   const headerDeltaY = useRef(new Animated.Value(isOpen ? -HEADER_HEIGHT : 0));
 
@@ -200,12 +201,12 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
   const themeObject = Object.assign(headerStyleOverride, theme);
 
   const _wrapperStyles = useRef({style: {height: startHeight}});
-  const _headerStyles = {style: {top: isOpen ? -HEADER_HEIGHT : 0}};
-  const _weekCalendarStyles = {style: {opacity: isOpen ? 0 : 1}};
+  const _headerStyles = useMemo(() => ({style: {top: isOpen ? -HEADER_HEIGHT : 0}}), [isOpen]);
+  const _weekCalendarStyles = useMemo(() => ({style: {opacity: isOpen ? 0 : 1}}), [isOpen]);
 
   const shouldHideArrows = !horizontal ? true : hideArrows || false;
 
-  const updateNativeStyles = () => {
+  const updateNativeStyles = useCallback(() => {
     wrapper?.current?.setNativeProps(_wrapperStyles.current);
 
     if (!horizontal) {
@@ -213,7 +214,7 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
     } else {
       weekCalendarWrapper?.current?.setNativeProps(_weekCalendarStyles);
     }
-  };
+  }, [_headerStyles, _weekCalendarStyles, horizontal]);
 
   const weekDaysStyle = useMemo(() => {
     const leftPaddings = calendarStyle?.paddingLeft;
@@ -230,7 +231,7 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
 
   const animatedHeaderStyle = useMemo(() => {
     return [style.current.header, {height: HEADER_HEIGHT + 10, top: headerDeltaY.current}];
-  }, [headerDeltaY.current]);
+  }, []);
 
   const weekCalendarStyle = useMemo(() => {
     return [style.current.weekContainer, isOpen ? style.current.hidden : style.current.visible];
@@ -257,29 +258,30 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
     }
   }, []);
 
-  useEffect(() => {
-    // date was changed from AgendaList, arrows or scroll
-    scrollToDate(date);
-  }, [date]);
-
   const handleScreenReaderStatus = (screenReaderEnabled: any) => {
     setScreenReaderEnabled(screenReaderEnabled);
   };
 
   /** Scroll */
 
-  const scrollToDate = (date: string) => {
-    if (!horizontal) {
-      calendarList?.current?.scrollToDay(date, 0, true);
-    } else if (getYear(date) !== visibleYear.current || getMonth(date) !== visibleMonth.current) {
-      // don't scroll if the month is already visible
-      calendarList?.current?.scrollToMonth(date);
+  useEffect(() => {
+    function scrollToDate(date: string) {
+      if (!horizontal) {
+        calendarList?.current?.scrollToDay(date, 0, true);
+      } else if (getYear(date) !== visibleYear.current || getMonth(date) !== visibleMonth.current) {
+        // don't scroll if the month is already visible
+        calendarList?.current?.scrollToMonth(date);
+      }
     }
-  };
+
+    // date was changed from AgendaList, arrows or scroll
+    scrollToDate(date);
+  }, [date, horizontal]);
 
   const scrollPage = useCallback((next: boolean) => {
     if (horizontal) {
       const d = parseDate(date);
+      if (!d) return;
 
       if (isOpen) {
         d.setDate(1);
@@ -305,59 +307,27 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
     }
   }, [horizontal, isOpen, firstDay, numberOfDays, setDate, date]);
 
-  /** Pan Gesture */
+  /** Animated */
 
-  const handleMoveShouldSetPanResponder = (_: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-    if (disablePan) {
-      return false;
+  const bounceToPosition = useCallback((toValue = 0) => {
+    function resetWeekCalendarOpacity(isOpen: boolean) {
+      _weekCalendarStyles.style.opacity = isOpen ? 0 : 1;
+      updateNativeStyles();
     }
-    if (!horizontal && isOpen) {
-      // disable pan detection when vertical calendar is open to allow calendar scroll
-      return false;
-    }
-    if (!isOpen && gestureState.dy < 0) {
-      // disable pan detection to limit to closed height
-      return false;
-    }
-    return gestureState.dy > 5 || gestureState.dy < -5;
-  };
 
-  const handlePanResponderMove = (_: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-    // limit min height to closed height
-    _wrapperStyles.current.style.height = Math.max(closedHeight, _height.current + gestureState.dy);
+    function closeHeader(isOpen: boolean) {
+      headerDeltaY.current.setValue(Number(_headerStyles.style.top)); // set the start position for the animated value
 
-    if (!horizontal) {
-      // vertical CalenderList header
-      _headerStyles.style.top = Math.min(Math.max(-gestureState.dy, -HEADER_HEIGHT), 0);
-    } else {
-      // horizontal Week view
-      if (!isOpen) {
-        _weekCalendarStyles.style.opacity = Math.min(1, Math.max(1 - gestureState.dy / 100, 0));
+      if (!horizontal && !isOpen) {
+        Animated.spring(headerDeltaY.current, {
+          toValue: 0,
+          speed: SPEED / 10,
+          bounciness: 1,
+          useNativeDriver: false
+        }).start();
       }
     }
 
-    updateNativeStyles();
-  };
-
-  const handlePanResponderEnd = () => {
-    _height.current = Number(_wrapperStyles.current.style.height);
-    bounceToPosition();
-  };
-
-  const numberOfDaysCondition = useMemo(() => {
-    return !numberOfDays || numberOfDays && numberOfDays <= 1;
-  }, [numberOfDays]);
-
-  const panResponder = useMemo(() => numberOfDaysCondition ? PanResponder.create({
-    onMoveShouldSetPanResponder: handleMoveShouldSetPanResponder,
-    onPanResponderMove: handlePanResponderMove,
-    onPanResponderRelease: handlePanResponderEnd,
-    onPanResponderTerminate: handlePanResponderEnd
-  }) : PanResponder.create({}), [numberOfDays]);
-
-  /** Animated */
-
-  const bounceToPosition = (toValue = 0) => {
     if (!disablePan) {
       const threshold = isOpen ? openHeight.current - closeThreshold : closedHeight + openThreshold;
       let _isOpen = _height.current >= threshold;
@@ -380,25 +350,21 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
       closeHeader(_isOpen);
       resetWeekCalendarOpacity(_isOpen);
     }
-  };
-
-  const resetWeekCalendarOpacity = (isOpen: boolean) => {
-    _weekCalendarStyles.style.opacity = isOpen ? 0 : 1;
-    updateNativeStyles();
-  };
-
-  const closeHeader = (isOpen: boolean) => {
-    headerDeltaY.current.setValue(Number(_headerStyles.style.top)); // set the start position for the animated value
-
-    if (!horizontal && !isOpen) {
-      Animated.spring(headerDeltaY.current, {
-        toValue: 0,
-        speed: SPEED / 10,
-        bounciness: 1,
-        useNativeDriver: false
-      }).start();
-    }
-  };
+  },
+    [
+      _headerStyles.style.top,
+      _weekCalendarStyles.style,
+      closeThreshold,
+      closedHeight,
+      deltaY,
+      disablePan,
+      horizontal,
+      isOpen,
+      onCalendarToggled,
+      openThreshold,
+      updateNativeStyles
+    ]
+  );
 
   const closeCalendar = useCallback(() => {
     setTimeout(() => {
@@ -407,11 +373,75 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
         bounceToPosition(closedHeight);
       }
     }, 0);
-  }, [isOpen, closedHeight]);
+  }, [isOpen, bounceToPosition, closedHeight]);
 
   const toggleCalendarPosition = useCallback(() => {
     bounceToPosition(isOpen ? closedHeight : openHeight.current);
   }, [isOpen, bounceToPosition, closedHeight]);
+
+  /** Pan Gesture */
+
+  const numberOfDaysCondition = useMemo(() => {
+    return !numberOfDays || (numberOfDays && numberOfDays <= 1);
+  }, [numberOfDays]);
+
+  const panResponder = useMemo(() => {
+    function handleMoveShouldSetPanResponder(_: GestureResponderEvent, gestureState: PanResponderGestureState) {
+      if (disablePan) {
+        return false;
+      }
+      if (!horizontal && isOpen) {
+        // disable pan detection when vertical calendar is open to allow calendar scroll
+        return false;
+      }
+      if (!isOpen && gestureState.dy < 0) {
+        // disable pan detection to limit to closed height
+        return false;
+      }
+      return gestureState.dy > 5 || gestureState.dy < -5;
+    }
+
+    function handlePanResponderMove(_: GestureResponderEvent, gestureState: PanResponderGestureState) {
+      // limit min height to closed height
+      _wrapperStyles.current.style.height = Math.max(closedHeight, _height.current + gestureState.dy);
+
+      if (!horizontal) {
+        // vertical CalenderList header
+        _headerStyles.style.top = Math.min(Math.max(-gestureState.dy, -HEADER_HEIGHT), 0);
+      } else {
+        // horizontal Week view
+        if (!isOpen) {
+          _weekCalendarStyles.style.opacity = Math.min(1, Math.max(1 - gestureState.dy / 100, 0));
+        }
+      }
+
+      updateNativeStyles();
+    }
+
+    function handlePanResponderEnd() {
+      _height.current = Number(_wrapperStyles.current.style.height);
+      bounceToPosition();
+    }
+
+    return numberOfDaysCondition
+      ? PanResponder.create({
+          onMoveShouldSetPanResponder: handleMoveShouldSetPanResponder,
+          onPanResponderMove: handlePanResponderMove,
+          onPanResponderRelease: handlePanResponderEnd,
+          onPanResponderTerminate: handlePanResponderEnd
+        })
+      : PanResponder.create({});
+  }, [
+    _headerStyles.style,
+    _weekCalendarStyles.style,
+    bounceToPosition,
+    closedHeight,
+    disablePan,
+    horizontal,
+    isOpen,
+    numberOfDaysCondition,
+    updateNativeStyles
+  ]);
 
   /** Events */
 
@@ -433,8 +463,9 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
       closeCalendar();
     }
     onDayPress?.(value);
-  }, [onDayPress, closeOnDayPress, closeCalendar, numberOfDaysCondition]);
+  }, [numberOfDaysCondition, closeOnDayPress, onDayPress, setDate, closeCalendar]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const onVisibleMonthsChange = useCallback(throttle(
     (value: DateData[]) => {
       const newDate = first(value);
@@ -469,7 +500,7 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
         }
       }
     }, 100, {trailing: true, leading: false}
-  ), [date, scrollPage]);
+  ), [bounceToPosition, date, getNumberOfWeeksInMonth, getOpenHeight, isLaterDate, isOpen, scrollPage]);
 
   /** Renders */
 
@@ -583,7 +614,7 @@ const ExpandableCalendar = (props: ExpandableCalendarProps) => {
         numberOfDays={numberOfDays}
         headerStyle={_headerStyle}
         timelineLeftInset={timelineLeftInset}
-        context={useContext(Context)}
+        context={useContextResult}
       />
     );
   };
